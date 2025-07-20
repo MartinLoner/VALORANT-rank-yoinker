@@ -4,9 +4,10 @@ from src.constants import DEFAULT_CONFIG, WEAPONS
 TABLE_OPTS = {
     "skin": "Skin",
     "rr": "Ranked Rating",
+    "earned_rr": "RR gained or lost (and AFK Penalties)",
     "leaderboard": "Leaderboard Position",
     "peakrank": "Peak Rank",
-    "previousrank": "Previous Rank",
+    "previousrank": "Previous Act Rank",
     "headshot_percent": "Headshot Percentage",
     "winrate": "WinRate",
     "kd": "K/D Ratio <!> Last Game Only <!>",

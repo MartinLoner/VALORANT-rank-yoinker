@@ -19,40 +19,55 @@ class Requests:
         self.headers = {}
         self.log = log
 
+
+        self.lockfile = self.get_lockfile()
         self.region = self.get_region()
         self.pd_url = f"https://pd.{self.region[0]}.a.pvp.net"
         self.glz_url = f"https://glz-{self.region[1][0]}.{self.region[1][1]}.a.pvp.net"
         self.log(f"Api urls: pd_url: '{self.pd_url}', glz_url: '{self.glz_url}'")
         self.region = self.region[0]
-        self.lockfile = self.get_lockfile()
-
+        
         self.puuid = ''
         #fetch puuid so its avaible outside
-        self.get_headers()
+        if not self.get_headers(init=True):
+            self.log("Invalid URI format, invalid lockfile, going back to menu")
+            self.get_lockfile(ignoreLockfile=True)
+        
 
-    def check_version(self):
+    @staticmethod
+    def check_version(version, copy_run_update_script):
         # checking for latest release
-        r = requests.get("https://api.github.com/repos/zayKenyon/VALORANT-rank-yoinker/releases")
-        json_data = r.json()
-        release_version = json_data[0]["tag_name"]  # get release version
-        for asset in json_data[0]["assets"]:
-            if "zip" in asset["content_type"]:
-                    link = asset["browser_download_url"]  # link for the latest release
-                    break
-        if float(release_version) > float(self.version):
-            print(f"New version available! {link}")
-            if sys.argv[0][-3:] == "exe":
-                while True:
-                    update_now = input("Do you want to update now? (Y/n): ")
-                    if update_now.lower() == "n" or update_now.lower() == "no":
-                        return
-                    elif update_now.lower() == "y" or update_now.lower() == "yes" or update_now == "":
-                        self.copy_run_update_script(link)
-                        os._exit(1)
-                    else:
-                        print('Invalid input please response with "yes" or "no" ("y", "n") or press enter to update')
+        try:
+            r = requests.get("https://api.github.com/repos/zayKenyon/VALORANT-rank-yoinker/releases")
+        except requests.exceptions.RequestException:
+            print(color("[WARNING] Unable to check for updates - skipping...", fore=(255, 165, 0)))
+            return
 
-    def copy_run_update_script(self, link):
+        try:
+            json_data = r.json()
+            release_version = json_data[0]["tag_name"]  # get release version
+            for asset in json_data[0]["assets"]:
+                if "zip" in asset["content_type"]:
+                        link = asset["browser_download_url"] # link for the latest release
+                        break
+            if float(release_version) > float(version):
+                print(color("[UPDATE] New version available!", fore=(0, 255, 0)))
+                if sys.argv[0][-3:] == "exe":
+                    while True:
+                        update_now = input(color("Would you like to update now? (Y/n): ", fore=(0, 255, 0)))
+                        if update_now.lower() == "n" or update_now.lower() == "no":
+                            return
+                        elif update_now.lower() == "y" or update_now.lower() == "yes" or update_now == "":
+                            copy_run_update_script(link)
+                            os._exit(1)
+                        else:
+                            print('Please respond with "yes" or "no" ("y", "n") or press enter')
+        except Exception:
+            print(color("[WARNING] Error checking for updates - skipping...", fore=(255, 165, 0)))
+            return
+
+    @staticmethod
+    def copy_run_update_script(link):
         try:
             os.mkdir(os.path.join(os.getenv('APPDATA'), "vry"))
         except FileExistsError:
@@ -63,13 +78,24 @@ class Requests:
         z.extractall(os.path.join(os.getenv('APPDATA'), "vry"))
         subprocess.Popen([os.path.join(os.getenv('APPDATA'), "vry", "updatescript.bat"), os.path.join(os.getenv('APPDATA'), "vry", ".".join(os.path.basename(link).split(".")[:-1])), os.getcwd(), os.path.join(os.getenv('APPDATA'), "vry")])
 
-    def check_status(self):
+    @staticmethod
+    def check_status():
         # checking status
-        rStatus = requests.get(
-            "https://raw.githubusercontent.com/zayKenyon/VALORANT-rank-yoinker/main/status.json").json()
-        if not rStatus["status_good"] or rStatus["print_message"]:
-            status_color = (255, 0, 0) if not rStatus["status_good"] else (0, 255, 0)
-            print(color(rStatus["message_to_display"], fore=status_color))
+        try:
+            rStatus = requests.get(
+                "https://raw.githubusercontent.com/zayKenyon/VALORANT-rank-yoinker/main/status.json")
+        except requests.exceptions.RequestException:
+            print(color("[WARNING] Unable to check status - skipping...", fore=(255, 165, 0)))
+            return
+
+        try:
+            status_data = rStatus.json()
+            if not status_data["status_good"] or status_data["print_message"]:
+                status_color = (255, 0, 0) if not status_data["status_good"] else (0, 255, 0)
+                print(color(status_data["message_to_display"], fore=status_color))
+        except Exception:
+            print(color("[WARNING] Failed processing status - skipping...", fore=(255, 165, 0)))
+            return
             
     def fetch(self, url_type: str, endpoint: str, method: str, rate_limit_seconds=5):
         try:
@@ -137,7 +163,7 @@ class Requests:
                         else:
                             break
                     except ConnectionError:
-                        print("Connection error, retrying in 5 seconds")
+                        self.log("Connection error, retrying in 5 seconds")
                         time.sleep(5)
                 if endpoint != "/chat/v4/presences":
                     self.log(
@@ -185,10 +211,11 @@ class Requests:
                     self.log(f"got version from logs '{version}'")
                     return version
 
-    def get_lockfile(self):
+    def get_lockfile(self, ignoreLockfile=False):
+        #ignoring lockfile is for when lockfile exists but it's not really valid, (local endpoints are not initialized yet)
         path = os.path.join(os.getenv('LOCALAPPDATA'), R'Riot Games\Riot Client\Config\lockfile')
         
-        if self.Error.LockfileError(path):
+        if self.Error.LockfileError(path, ignoreLockfile=ignoreLockfile):
             with open(path) as lockfile:
                 self.log("opened lockfile")
                 data = lockfile.read().split(':')
@@ -196,13 +223,36 @@ class Requests:
                 return dict(zip(keys, data))
 
 
-    def get_headers(self, refresh=False):
+    def get_headers(self, refresh=False, init=False):
         if self.headers == {} or refresh:
-            local_headers = {'Authorization': 'Basic ' + base64.b64encode(
-                ('riot:' + self.lockfile['password']).encode()).decode()}
-            response = requests.get(f"https://127.0.0.1:{self.lockfile['port']}/entitlements/v1/token",
-                                    headers=local_headers, verify=False)
-            entitlements = response.json()
+            try_again = True
+            while try_again:
+                local_headers = {'Authorization': 'Basic ' + base64.b64encode(
+                    ('riot:' + self.lockfile['password']).encode()).decode()}
+                try:
+                    response = requests.get(f"https://127.0.0.1:{self.lockfile['port']}/entitlements/v1/token",
+                                            headers=local_headers, verify=False)
+                    self.log(f"https://127.0.0.1:{self.lockfile['port']}/entitlements/v1/token\n{local_headers}")
+                except ConnectionError:
+                    self.log(f"https://127.0.0.1:{self.lockfile['port']}/entitlements/v1/token\n{local_headers}")
+                    self.log("Connection error, retrying in 1 seconds, getting new lockfile")
+                    time.sleep(1)
+                    self.lockfile = self.get_lockfile()
+                    continue
+                entitlements = response.json()
+                if entitlements.get("message") == "Entitlements token is not ready yet":
+                    try_again = True
+                    time.sleep(1)
+                elif entitlements.get("message") == "Invalid URI format":
+                    self.log(f"Invalid uri format: {entitlements}")
+                    if init:
+                        return False
+                    else:
+                        try_again = True
+                        time.sleep(5)
+                else:
+                    try_again = False
+
             self.puuid = entitlements['subject']
             headers = {
                 'Authorization': f"Bearer {entitlements['accessToken']}",

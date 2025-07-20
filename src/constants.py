@@ -1,7 +1,7 @@
 import requests
 from colr import color
 
-version = "2.51"
+version = "2.80"
 enablePrivateLogging = True
 hide_names = True
 hide_levels = True
@@ -73,10 +73,13 @@ AGENTCOLORLIST = {
     "neon": (28, 69, 161),
     "viper": (48, 186, 135),
     "yoru": (52, 76, 207),
+    "harbor": (0, 128, 128),
+    "gekko": (60, 179, 113),
+    "vyse": (97, 83, 183),
+    "iso": (154, 222, 255),
+    "clove": (191, 158, 227),
+    "tejo": (255, 183, 97),
 }
-
-
-GAMEPODS = requests.get("https://valorant-api.com/internal/locres/en-US").json()["data"]["UI_GamePodStrings"]
 
 symbol = "■"
 PARTYICONLIST = [
@@ -146,6 +149,7 @@ WEAPONS = [
     "Phantom",
     "Vandal",
     "Marshal",
+    "Outlaw",
     "Operator",
     "Ares",
     "Odin",
@@ -160,6 +164,7 @@ DEFAULT_CONFIG = {
         "table": {
             "skin": True,
             "rr": True,
+            "earned_rr": True,
             "peakrank": True,
             "previousrank" : False,
             "leaderboard": True,
